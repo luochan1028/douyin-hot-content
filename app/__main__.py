@@ -52,10 +52,21 @@ def cmd_health(args):
 
 def cmd_login(args):
     """登录抖音创作者中心，保存 Cookie。"""
-    from app.publisher.login import login, has_cookies, clear_cookies
+    from app.publisher.login import login, has_cookies, clear_cookies, import_cookies
     if args.logout:
         clear_cookies()
         print("已退出登录")
+        return
+    # 直接导入 Cookie 模式
+    if args.cookies:
+        result = import_cookies(args.cookies)
+        print(result["message"])
+        return
+    if args.cookies_file:
+        from pathlib import Path
+        cookie_text = Path(args.cookies_file).read_text(encoding="utf-8")
+        result = import_cookies(cookie_text)
+        print(result["message"])
         return
     if has_cookies() and not args.force:
         print("已有登录 Cookie，如需重新登录请加 --force")
@@ -96,6 +107,8 @@ def main():
     login_p.add_argument("--headless", action="store_true", help="无头模式（云服务器用）")
     login_p.add_argument("--no-headless", action="store_true", help="有界面模式（本地用）")
     login_p.add_argument("--timeout", type=int, default=300, help="登录等待超时秒数")
+    login_p.add_argument("--cookies", type=str, default=None, help='直接粘贴 Cookie 字符串，如 "sessionid=xxx; ttwid=yyy"')
+    login_p.add_argument("--cookies-file", type=str, default=None, help="从文件读取 Cookie（支持 .txt 或 .json）")
     login_p.set_defaults(func=cmd_login)
 
     sub.add_parser("login-status", help="检查抖音登录状态").set_defaults(func=cmd_login_status)
