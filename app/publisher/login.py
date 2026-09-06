@@ -29,6 +29,71 @@ def clear_cookies():
         logger.info("已清除登录 Cookie")
 
 
+def import_cookies(cookie_input: str) -> dict:
+    """
+    导入用户从浏览器复制的 Cookie，保存为 Playwright 格式。
+
+    支持两种格式：
+    1. JSON 数组格式: [{"name":"sessionid","value":"xxx","domain":".douyin.com",...}, ...]
+    2. 字符串格式:   "sessionid=xxx; ttwid=yyy; msToken=zzz"
+
+    Returns: {success, message, count}
+    """
+    cookie_input = cookie_input.strip()
+    if not cookie_input:
+        return {"success": False, "message": "Cookie 内容为空", "count": 0}
+
+    cookies = []
+
+    # 尝试解析为 JSON 数组
+    if cookie_input.startswith("["):
+        try:
+            cookies = json.loads(cookie_input)
+            if not isinstance(cookies, list):
+                return {"success": False, "message": "JSON 格式必须是数组", "count": 0}
+            # 校验每个 cookie 至少有 name 和 value
+            for c in cookies:
+                if "name" not in c or "value" not in c:
+                    return {"success": False, "message": "每个 Cookie 必须包含 name 和 value 字段", "count": 0}
+                # 补齐必要字段
+                c.setdefault("domain", ".douyin.com")
+                c.setdefault("path", "/")
+        except json.JSONDecodeError as e:
+            return {"success": False, "message": f"JSON 解析失败: {e}", "count": 0}
+    else:
+        # 字符串格式: name1=value1; name2=value2
+        for part in cookie_input.split(";"):
+            part = part.strip()
+            if not part or "=" not in part:
+                continue
+            name, _, value = part.partition("=")
+            name = name.strip()
+            value = value.strip()
+            if name:
+                cookies.append({
+                    "name": name,
+                    "value": value,
+                    "domain": ".douyin.com",
+                    "path": "/",
+                    "httpOnly": False,
+                    "secure": True,
+                    "sameSite": "Lax",
+                })
+
+    if not cookies:
+        return {"success": False, "message": "未解析到任何有效 Cookie", "count": 0}
+
+    COOKIE_FILE.write_text(json.dumps(cookies, ensure_ascii=False, indent=2), encoding="utf-8")
+    logger.info("已导入 %d 个 Cookie 到 %s", len(cookies), COOKIE_FILE)
+
+    # 检查是否有关键的 sessionid
+    has_session = any(c["name"] == "sessionid" for c in cookies)
+    msg = f"成功导入 {len(cookies)} 个 Cookie"
+    if not has_session:
+        msg += "（警告：未检测到 sessionid，可能无法正常登录）"
+    return {"success": True, "message": msg, "count": len(cookies)}
+
+
 async def save_cookies(context):
     cookies = await context.cookies()
     COOKIE_FILE.write_text(json.dumps(cookies, ensure_ascii=False), encoding="utf-8")
