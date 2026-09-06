@@ -173,36 +173,89 @@ async def _do_publish(video_path: str, title: str, desc: str, tags: list,
 
         page = await context.new_page()
         try:
-            await page.goto(CREATOR_URL, wait_until="networkidle", timeout=60000)
+            await page.goto(CREATOR_URL, wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_timeout(5000)
+
             # 上传视频
             upload_input = page.locator('input[type="file"]')
             await upload_input.set_input_files(video_path)
-            await page.wait_for_timeout(5000)
+            # 等待上传完成
+            for _ in range(30):
+                await page.wait_for_timeout(2000)
+                # 检测上传完成：发布按钮变为可点击状态
+                try:
+                    publish_btn = page.locator('button:has-text("发布"), button:has-text("发表")').first
+                    if await publish_btn.count() > 0 and await publish_btn.is_enabled():
+                        break
+                except Exception:
+                    pass
 
-            # 填写标题/描述
-            title_input = page.locator('textarea, input[placeholder*="标题"], div[contenteditable="true"]').first
-            await title_input.fill(f"{title}\n{desc}")
+            # 填写标题/描述（兼容多种选择器）
+            text = f"{title}\n{desc}"
+            filled = False
+            for sel in ['div[contenteditable="true"]', 'textarea', 'input[placeholder*="标题"]', 'input[placeholder*="描述"]']:
+                try:
+                    el = page.locator(sel).first
+                    if await el.count() > 0:
+                        await el.click()
+                        await page.keyboard.type(text, delay=20)
+                        filled = True
+                        break
+                except Exception:
+                    continue
+            if not filled:
+                logger.warning("未找到标题/描述输入框，跳过")
 
-            # 填写标签
+            # 填写标签（可选，找不到就跳过）
             for tag in tags[:5]:
-                tag_input = page.locator('input[placeholder*="标签"], input[placeholder*="话题"]').first
-                await tag_input.fill(tag)
-                await page.wait_for_timeout(1000)
-                await tag_input.press("Enter")
+                tag_filled = False
+                for sel in ['input[placeholder*="标签"]', 'input[placeholder*="话题"]',
+                            'input[placeholder*="添加"]', 'div[contenteditable="true"]']:
+                    try:
+                        el = page.locator(sel).first
+                        if await el.count() > 0:
+                            await el.fill(tag)
+                            await page.wait_for_timeout(800)
+                            await el.press("Enter")
+                            tag_filled = True
+                            break
+                    except Exception:
+                        continue
+                if not tag_filled:
+                    logger.warning("未找到标签输入框，跳过标签: %s", tag)
+                    break
 
-            # 定时发布或立即发布
-            if scheduled_time:
-                schedule_btn = page.locator('text=定时发布').first
-                if await schedule_btn.count() > 0:
-                    await schedule_btn.click()
-            else:
-                publish_btn = page.locator('button:has-text("发布"), button:has-text("发表")').first
-                await publish_btn.click()
+            await page.wait_for_timeout(2000)
+
+            # 点击发布按钮
+            published = False
+            for sel in ['button:has-text("发布")', 'button:has-text("发表")', 'button:has-text("立即发布")']:
+                try:
+                    btn = page.locator(sel).first
+                    if await btn.count() > 0 and await btn.is_enabled():
+                        await btn.click()
+                        published = True
+                        break
+                except Exception:
+                    continue
+
+            if not published:
+                # 截图调试
+                shot = STORAGE_DIR / "publish_debug.png"
+                await page.screenshot(path=str(shot), full_page=True)
+                return {"success": False, "error": "未找到可点击的发布按钮"}
 
             await page.wait_for_timeout(8000)
             await _save_cookies(context)
             return {"success": True}
         except Exception as e:
+            # 出错时截图
+            try:
+                shot = STORAGE_DIR / "publish_debug.png"
+                await page.screenshot(path=str(shot), full_page=True)
+                logger.info("发布失败截图已保存: %s", shot)
+            except Exception:
+                pass
             return {"success": False, "error": str(e)}
         finally:
             await browser.close()
