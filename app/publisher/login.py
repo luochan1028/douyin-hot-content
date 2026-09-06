@@ -29,17 +29,17 @@ def clear_cookies():
         logger.info("已清除登录 Cookie")
 
 
-def save_cookies(context):
-    cookies = context.cookies()
+async def save_cookies(context):
+    cookies = await context.cookies()
     COOKIE_FILE.write_text(json.dumps(cookies, ensure_ascii=False), encoding="utf-8")
     logger.info("Cookie 已保存: %s", COOKIE_FILE)
 
 
-def load_cookies(context) -> bool:
+async def load_cookies(context) -> bool:
     if COOKIE_FILE.exists():
         try:
             cookies = json.loads(COOKIE_FILE.read_text(encoding="utf-8"))
-            context.add_cookies(cookies)
+            await context.add_cookies(cookies)
             return True
         except Exception as e:
             logger.warning("Cookie 加载失败: %s", e)
@@ -100,7 +100,7 @@ async def login(headless: Optional[bool] = None, timeout: int = 300) -> dict:
                 logger.info("请在弹出的浏览器中扫码登录...")
                 input("登录完成后按回车继续...")
 
-            save_cookies(context)
+            await save_cookies(context)
             return {"success": True, "message": "登录成功，Cookie 已保存", "qr_screenshot": str(QR_SCREENSHOT)}
 
         except Exception as e:
@@ -120,7 +120,7 @@ async def check_login_status() -> dict:
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
-        load_cookies(context)
+        await load_cookies(context)
         page = await context.new_page()
         try:
             await page.goto(CREATOR_URL, wait_until="domcontentloaded", timeout=30000)
