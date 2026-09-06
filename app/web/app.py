@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Body
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from sqlalchemy import desc
 
@@ -121,6 +121,14 @@ def api_login(force: bool = False):
     }
 
 
+@app.post("/api/login/import")
+def api_import_cookies(cookies: str = Body("", embed=True)):
+    """导入用户从浏览器复制的 Cookie。"""
+    from app.publisher.login import import_cookies
+    result = import_cookies(cookies)
+    return result
+
+
 @app.get("/api/login/qr")
 def api_login_qr():
     """返回登录二维码截图。"""
@@ -191,6 +199,12 @@ th{background:#f8f9fa;font-weight:600}
     <h2>抖音账号登录</h2>
     <div id="login-box">
       <p>登录状态: 检测中...</p>
+    </div>
+    <div style="margin-top:16px;border-top:1px solid #eee;padding-top:12px">
+      <p style="font-size:13px;color:#666;margin-bottom:8px">方式二：粘贴浏览器 Cookie 免扫码登录</p>
+      <textarea id="cookie-input" rows="4" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-family:monospace;font-size:12px;resize:vertical" placeholder="从浏览器 F12 → Application → Cookies 复制，格式如：sessionid=xxx; ttwid=yyy; ..."></textarea>
+      <button onclick="importCookies()" style="margin-top:8px;padding:6px 16px;background:#16a34a;color:#fff;border:none;border-radius:4px;cursor:pointer">导入 Cookie</button>
+      <span id="cookie-msg" style="margin-left:12px;font-size:13px"></span>
     </div>
   </div>
   <div class="card">
@@ -265,6 +279,24 @@ async function doLogin(){
 async function logout(){
   await fetch('/api/login/logout', {method:'POST'});
   loadLogin();
+}
+
+async function importCookies(){
+  const text = document.getElementById('cookie-input').value.trim();
+  const msg = document.getElementById('cookie-msg');
+  if (!text) { msg.textContent = '请先粘贴 Cookie'; msg.style.color = '#ef4444'; return; }
+  msg.textContent = '导入中...'; msg.style.color = '#666';
+  const r = await fetch('/api/login/import', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({cookies: text})
+  }).then(r=>r.json());
+  msg.textContent = r.message;
+  msg.style.color = r.success ? '#16a34a' : '#ef4444';
+  if (r.success) {
+    document.getElementById('cookie-input').value = '';
+    setTimeout(loadLogin, 1000);
+  }
 }
 </script>
 </body>
