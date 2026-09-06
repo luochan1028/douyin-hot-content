@@ -144,26 +144,20 @@ async def login(headless: Optional[bool] = None, timeout: int = 300) -> dict:
             await page.screenshot(path=str(QR_SCREENSHOT), full_page=False)
             logger.info("登录页截图已保存: %s", QR_SCREENSHOT)
 
-            if headless:
-                # 云服务器：轮询等待用户扫码登录（最多 timeout 秒）
-                logger.info("请用抖音 App 扫描二维码登录（截图路径: %s）", QR_SCREENSHOT)
-                logger.info("等待登录中，最多 %d 秒...", timeout)
-                for i in range(timeout):
-                    await asyncio.sleep(1)
-                    # 检测是否已登录：URL 是否跳转到创作者中心
-                    if "creator.douyin.com" in page.url and "login" not in page.url.lower():
-                        # 进一步检测：页面是否出现"内容管理"等登录后元素
-                        try:
-                            logged_in = await page.locator('text=内容管理, text=数据中心, a[href*="creator-micro"]').count()
-                            if logged_in > 0 or i > 5:  # 登录后页面通常几秒内加载
-                                break
-                        except Exception:
-                            pass
-                await page.wait_for_timeout(2000)
-            else:
-                # 本地：提示用户手动登录
-                logger.info("请在弹出的浏览器中扫码登录...")
-                input("登录完成后按回车继续...")
+            # 轮询等待用户扫码登录（最多 timeout 秒）
+            logger.info("请在浏览器中扫码登录，等待中（最多 %d 秒）...", timeout)
+            for i in range(timeout):
+                await asyncio.sleep(1)
+                # 检测是否已登录：URL 是否跳转到创作者中心且不含 login
+                if "creator.douyin.com" in page.url and "login" not in page.url.lower():
+                    # 检测登录后特征元素
+                    try:
+                        logged_in = await page.locator('text=内容管理, text=数据中心, a[href*="creator-micro"]').count()
+                        if logged_in > 0 or i > 5:
+                            break
+                    except Exception:
+                        pass
+            await page.wait_for_timeout(2000)
 
             await save_cookies(context)
             return {"success": True, "message": "登录成功，Cookie 已保存", "qr_screenshot": str(QR_SCREENSHOT)}
