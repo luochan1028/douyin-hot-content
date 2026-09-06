@@ -21,17 +21,17 @@ COOKIE_FILE = COOKIE_DIR / "douyin_cookies.json"
 CREATOR_URL = "https://creator.douyin.com/creator-micro/content/upload"
 
 
-def _save_cookies(context):
-    cookies = context.cookies()
+async def _save_cookies(context):
+    cookies = await context.cookies()
     COOKIE_FILE.write_text(json.dumps(cookies, ensure_ascii=False), encoding="utf-8")
     logger.info("Cookie 已保存: %s", COOKIE_FILE)
 
 
-def _load_cookies(context):
+async def _load_cookies(context):
     if COOKIE_FILE.exists():
         try:
             cookies = json.loads(COOKIE_FILE.read_text(encoding="utf-8"))
-            context.add_cookies(cookies)
+            await context.add_cookies(cookies)
             return True
         except Exception:
             pass
@@ -167,7 +167,7 @@ async def _do_publish(video_path: str, title: str, desc: str, tags: list,
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=_is_headless())
         context = await browser.new_context()
-        if not _load_cookies(context):
+        if not await _load_cookies(context):
             await browser.close()
             return {"success": False, "error": "Cookie 加载失败，请重新执行: python -m app login"}
 
@@ -200,7 +200,7 @@ async def _do_publish(video_path: str, title: str, desc: str, tags: list,
                 await publish_btn.click()
 
             await page.wait_for_timeout(8000)
-            _save_cookies(context)
+            await _save_cookies(context)
             return {"success": True}
         except Exception as e:
             return {"success": False, "error": str(e)}
