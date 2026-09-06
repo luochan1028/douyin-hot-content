@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  douyin-hot:
+    build: .
+    container_name: douyin-hot-content
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
+      - ./.env:/app/.env:ro
+    environment:
+      - DATABASE_URL=sqlite:////app/storage/app.db
+      - STORAGE_DIR=/app/storage
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=8000
+      - FFMPEG_PATH=ffmpeg
+      - FFPROBE_PATH=ffprobe
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    # 如需启用定时调度，可取消下方注释并设置调度频率
+    # command: sh -c "python -m app init-db && python -m app web"

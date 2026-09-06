@@ -1,0 +1,15 @@
+[Unit]
+Description=抖音热点内容自动生成与发布系统 - 定时调度
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/douyin-hot
+ExecStart=/opt/douyin-hot/.venv/bin/python -m app scheduler
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

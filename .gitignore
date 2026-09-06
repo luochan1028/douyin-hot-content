@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 数据库与存储
+*.db
+storage/
+!storage/.gitkeep
+
+# 环境
+.env
+.env.local
+
+# 本地工具（不提交）
+python311/
+python-embed.zip
+get-pip.py
+ffmpeg/
+ffmpeg.zip
+pw-browsers/
+
+# 文档解析临时文件
+docx_extract/
+docx_text.txt
+
+# 日志
+*.log
+
+# IDE
+.vscode/
+.idea/
+.trae/
+
+# 部署包
+douyin-hot-deploy.zip
